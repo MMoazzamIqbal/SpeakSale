@@ -42,7 +42,8 @@ CREATE TABLE sales (
                     CHECK (customer_type IN ('walk-in', 'wholesaler', 'regular', 'loyal')),
     raw_transcript  text,
     customer_label  text,
-    file_source     text                                     -- path of the recording the sale came from
+    file_source     text,                                    -- path of the recording the sale came from
+    file_id         integer                                  -- recording that produced the sale
 );
 
 CREATE TABLE sale_items (
@@ -52,7 +53,7 @@ CREATE TABLE sale_items (
     unit                text NOT NULL,
     unit_price          numeric(10,2),                           -- final price per base unit, after any discount
     price_source        text,                                    -- where the price came from: spoken, db...
-    discount_pct        numeric(5,2) NOT NULL DEFAULT 0,         -- not used: the final price is stored instead
+    discount_pct        numeric(5,2) NOT NULL DEFAULT 0,         -- derived from retail full_price
     cost_price_at_sale  numeric(10,2),
     variant             jsonb                                    -- attributes of what was sold, e.g. {"color": "blue"}
 );
@@ -67,8 +68,16 @@ CREATE TABLE recordings (
     status            text,                                    -- received, processing, done, failed, needs_review
     duration_seconds  numeric(10,2),
     issue             text,                                    -- reason when processing failed
-    attempts          integer DEFAULT 0
+    attempts          integer DEFAULT 0,
+    raw_transcript    text,
+    error_log         jsonb NOT NULL DEFAULT '[]'::jsonb,
+    extracted_json    jsonb,
+    processed_at      timestamptz
 );
+
+ALTER TABLE sales
+    ADD CONSTRAINT sales_file_id_fkey
+    FOREIGN KEY (file_id) REFERENCES recordings(file_id);
 
 CREATE TABLE pending_customers (
     pending_id        serial PRIMARY KEY,
